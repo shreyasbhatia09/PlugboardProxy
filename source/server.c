@@ -36,5 +36,26 @@ void beginServer(char *port, char *server_ip, char *d_port, char *keyfile)
     {
         setFailure("Sockopt Failed");
     }
+    address.sin_family = AF_INET;
+    address.sin_addr.s_addr = INADDR_ANY;
+    address.sin_port = htons( port );
 
+    // Forcefully attaching socket to the port
+    int bind = bind(server_fd, (struct sockaddr *)&address, sizeof(address))
+    if (bind<0)
+        setFailure("Bind Failure");
+    if (listen(server_fd, 3) < 0)
+    {
+        setFailure("Listen Failure");
+    }
+    if ((new_socket = accept(server_fd, (struct sockaddr *)&address,
+                       (socklen_t*)&addrlen))<0)
+    {
+        setFailure("accept");
+    }
+    valread = read( new_socket , buffer, 1024);
+    printf("Server:%s\n",buffer );
+    send(new_socket , hello , strlen(hello) , 0 );
+    printf("Hello message sent\n");
+    return 0;
 }
