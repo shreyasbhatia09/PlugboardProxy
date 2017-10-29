@@ -8,9 +8,18 @@
 #define setNULL(x) x = NULL
 #define isNULL(x) if (x==NULL)
 
-void readArguments(int argc, char **argv,char *key, char *destAddress, int serverPort, int destPort)
+
+
+int main(int argc, char **argv)
 {
-    int opt;
+
+    char *key;
+    char *destAddress;
+    setNULL(key);
+    setNULL(destAddress);
+    int serverPort = 0;
+    int destPort;
+     int opt;
     while((opt = getopt(argc, argv, "l:k:")) !=-1)
     {
         switch(opt)
@@ -38,19 +47,5 @@ void readArguments(int argc, char **argv,char *key, char *destAddress, int serve
     destAddress=argv[optind];
     optind++;
     destPort = atoi(argv[optind]);
-
-    return;
-}
-int main(int argc, char **argv)
-{
-
-    char *key;
-    char *destAddress;
-    setNULL(key);
-    setNULL(destAddress);
-
-    int serverPort = 0;
-    int opt;
-    int destPort;
-    rea
+    return 0;
 }
