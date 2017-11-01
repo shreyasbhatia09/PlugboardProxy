@@ -19,7 +19,7 @@ void setFailure(char *msg)
 
 void beginServer(char *port, char *server_ip, char *d_port, char *keyfile)
 {
-      int server_fd, new_socket, valread;
+    int server_fd, new_socket, valread;
     struct sockaddr_in address;
     int opt = 1;
     int addrlen = sizeof(address);

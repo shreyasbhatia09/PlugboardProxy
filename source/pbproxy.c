@@ -13,6 +13,14 @@
 #define isNULL(x) if (x==NULL)
 
 
+void init(char *key)
+{
+    if(key==NULL)
+    {
+        // TO DO- make random
+        key = "12345678";
+    }
+}
 
 int main(int argc, char **argv)
 {
@@ -32,7 +40,7 @@ int main(int argc, char **argv)
 
             case 'l':
             {
-                reverse_proxy = 1;
+                reverse_proxy   = 1;
                 serverPort = (optarg);
                 break;
             }
@@ -60,6 +68,9 @@ int main(int argc, char **argv)
         fprintf(stderr, "No key passed. Exiting.");
         exit(0);
     }
+    isNULL(key)
+        init(key);
+
     if(reverse_proxy)
     {
         beginServer(serverPort, destAddress, destPort, key);
