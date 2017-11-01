@@ -5,7 +5,12 @@
 #include <stdlib.h>
 #include <netinet/in.h>
 #include <string.h>
+#include <fcntl.h>
+#include <unistd.h>
 
+#include "openssl/bio.h"
+#include "openssl/ssl.h"
+#include "openssl/err.h"
 void setFailure(char *msg)
 {
     perror(msg);
@@ -14,48 +19,52 @@ void setFailure(char *msg)
 
 void beginServer(char *port, char *server_ip, char *d_port, char *keyfile)
 {
-    int sockfd, new_socket, valread, sockopt;
+      int server_fd, new_socket, valread;
     struct sockaddr_in address;
     int opt = 1;
     int addrlen = sizeof(address);
     char buffer[1024] = {0};
     char *hello = "Hello from server";
 
-    /*
-    AF_INET -> IPV4
-    SOCK_STREAM -> TCP
-    0 -> IP protocol
-    */
-    sockfd = socket(AF_INET,SOCK_STREAM,0);
-    if(sockfd == 0)
+    // Creating socket file descriptor
+    if ((server_fd = socket(AF_INET, SOCK_STREAM, 0)) == 0)
     {
-        setFailure("Socket Failed");
+        perror("socket failed");
+        exit(EXIT_FAILURE);
     }
-    sockopt = setsockopt(sockfd, SOL_SOCKET, SO_REUSEADDR | SO_REUSEPORT, &opt, sizeof(opt));
-    if(sockopt == 0)
+
+    // Forcefully attaching socket to the port 8080
+    if (setsockopt(server_fd, SOL_SOCKET, SO_REUSEADDR | SO_REUSEPORT,
+                                                  &opt, sizeof(opt)))
     {
-        setFailure("Sockopt Failed");
+        perror("setsockopt");
+        exit(EXIT_FAILURE);
     }
     address.sin_family = AF_INET;
     address.sin_addr.s_addr = INADDR_ANY;
-    address.sin_port = htons( port );
+    address.sin_port = htons( atoi(port) );
 
-    // Forcefully attaching socket to the port
-    int bind = bind(server_fd, (struct sockaddr *)&address, sizeof(address))
-    if (bind<0)
-        setFailure("Bind Failure");
+
+    // Forcefully attaching socket to the port 8080
+    if (bind(server_fd, (struct sockaddr *)&address,
+                                 sizeof(address))<0)
+    {
+        perror("bind failed");
+        exit(EXIT_FAILURE);
+    }
     if (listen(server_fd, 3) < 0)
     {
-        setFailure("Listen Failure");
+        perror("listen");
+        exit(EXIT_FAILURE);
     }
     if ((new_socket = accept(server_fd, (struct sockaddr *)&address,
                        (socklen_t*)&addrlen))<0)
     {
-        setFailure("accept");
+        perror("accept");
+        exit(EXIT_FAILURE);
     }
     valread = read( new_socket , buffer, 1024);
-    printf("Server:%s\n",buffer );
+    printf("%s\n",buffer );
     send(new_socket , hello , strlen(hello) , 0 );
     printf("Hello message sent\n");
-    return 0;
 }
