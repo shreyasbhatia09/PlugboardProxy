@@ -1,4 +1,4 @@
 #ifndef server
 #define server
-void beginServer(char *port, char *server_ip, char *d_port, char *keyfile);
+int beginServer(char *port, char *dest_address, char *d_port, char *keyfile);
 #endif

@@ -1,5 +1,3 @@
-//REFERENCE - http://www.geeksforgeeks.org/socket-programming-cc/
-
 // Client side C/C++ program to demonstrate Socket programming
 #include <stdio.h>
 #include <sys/socket.h>
@@ -15,11 +13,9 @@
 #include <openssl/hmac.h>
 #include <openssl/buffer.h>
 
-
-
 // REFERENCE
 // https://stackoverflow.com/questions/3141860/aes-ctr-256-encryption-mode-of-operation-on-openssl
-// http://www.gurutechnologies.net/blog/aes-ctr-encryption-in-c/
+// http://www.binarytides.com/server-client-example-c-sockets-linux/
 struct ctr_state {
     unsigned char ivec[16];  /* ivec[0..7] is the IV, ivec[8..15] is the big-endian counter */
     unsigned int num;
@@ -100,55 +96,57 @@ void fencrypt(char* text, char* cipher, const unsigned char* enc_key, struct ctr
 }
 
 
-int startClient(char *server_ip, char *d_port, char *keyfile)
+int startClient(char *server_address, char *server_port, char *keyfile)
 {
-    struct sockaddr_in address;
-    int sock = 0, valread;
-    struct sockaddr_in serv_addr;
-    char buffer[1024] = {0};
-    if ((sock = socket(AF_INET, SOCK_STREAM, 0)) < 0)
+    int sock;
+    struct sockaddr_in server;
+    char message[1000] , server_reply[2000];
+
+    //Create socket
+    sock = socket(AF_INET , SOCK_STREAM , 0);
+    if (sock == -1)
     {
-        printf("\n Socket creation error \n");
-        return -1;
+        printf("Could not create socket");
+    }
+    puts("Socket created");
+
+    server.sin_addr.s_addr = inet_addr("127.0.0.1");
+    server.sin_family = AF_INET;
+    server.sin_port = htons(8888) ;
+
+    //Connect to remote server
+    if (connect(sock , (struct sockaddr *)&server , sizeof(server)) < 0)
+    {
+        perror("connect failed. Error");
+        return 1;
     }
 
-    memset(&serv_addr, '0', sizeof(serv_addr));
+    puts("Connected\n");
 
-    serv_addr.sin_family = AF_INET;
-    serv_addr.sin_port = htons(atoi(d_port));
-
-    // Convert IPv4 and IPv6 addresses from text to binary form
-    if(inet_pton(AF_INET, server_ip, &serv_addr.sin_addr)<=0)
-    {
-        printf("\nInvalid address/ Address not supported \n");
-        return -1;
-    }
-
-    if (connect(sock, (struct sockaddr *)&serv_addr, sizeof(serv_addr)) < 0)
-    {
-        printf("\nConnection Failed \n");
-        return -1;
-    }
+    //keep communicating with server
     while(1)
     {
-        // TO DO: read input
-        char *hello = "Hello from client";
+        printf("Enter message : ");
+        scanf("%s" , message);
 
-        unsigned char iv[8];
-        struct ctr_state state;
+        //Send some data
+        if( send(sock , message , strlen(message) , 0) < 0)
+        {
+            puts("Send failed");
+            return 1;
+        }
 
-        if (!RAND_bytes(iv, 8))
-            /* Handle the error */
-            exit(1);
+        //Receive a reply from the server
+        if( recv(sock , server_reply , 2000 , 0) < 0)
+        {
+            puts("recv failed");
+            break;
+        }
 
-        init_ctr(&state, iv);
-
-        send(sock , hello , strlen(hello) , 0 );
-        printf("Message sent\n");
-        valread = read( sock , buffer, 1024);
-        printf("%s\n",buffer );
-
+        puts("Server reply :");
+        puts(server_reply);
     }
-    return 0;
+
+    close(sock);
 }
 

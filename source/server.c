@@ -1,4 +1,4 @@
-//REFERENCE - http://www.geeksforgeeks.org/socket-programming-cc/
+//REFERENCE - http://www.binarytides.com/server-client-example-c-sockets-linux/
 
 #include <stdio.h>
 #include <sys/socket.h>
@@ -17,54 +17,65 @@ void setFailure(char *msg)
     exit(EXIT_FAILURE);
 }
 
-void beginServer(char *port, char *server_ip, char *d_port, char *keyfile)
+int beginServer(char *port, char *dest_address, char *d_port, char *keyfile)
 {
-    int server_fd, new_socket, valread;
-    struct sockaddr_in address;
-    int opt = 1;
-    int addrlen = sizeof(address);
-    char buffer[1024] = {0};
-    char *hello = "Hello from server";
+    int socket_desc , client_sock , c , read_size;
+    struct sockaddr_in server , client;
+    char client_message[2000];
 
-    // Creating socket file descriptor
-    if ((server_fd = socket(AF_INET, SOCK_STREAM, 0)) == 0)
+    //Create socket
+    socket_desc = socket(AF_INET , SOCK_STREAM , 0);
+    if (socket_desc == -1)
     {
-        perror("socket failed");
-        exit(EXIT_FAILURE);
+        printf("Could not create socket");
+    }
+    puts("Socket created");
+
+    //Prepare the sockaddr_in structure
+    server.sin_family = AF_INET;
+    server.sin_addr.s_addr = INADDR_ANY;
+    server.sin_port = htons(8888);
+
+    //Bind
+    if( bind(socket_desc,(struct sockaddr *)&server , sizeof(server)) < 0)
+    {
+        //print the error message
+        perror("bind failed. Error");
+        return 1;
+    }
+    puts("bind done");
+
+    //Listen
+    listen(socket_desc , 3);
+
+    //Accept and incoming connection
+    puts("Waiting for incoming connections...");
+    c = sizeof(struct sockaddr_in);
+
+    //accept connection from an incoming client
+    client_sock = accept(socket_desc, (struct sockaddr *)&client, (socklen_t*)&c);
+    if (client_sock < 0)
+    {
+        perror("accept failed");
+        return 1;
+    }
+    puts("Connection accepted");
+
+    //Receive a message from client
+    while( (read_size = recv(client_sock , client_message , 2000 , 0)) > 0 )
+    {
+        //Send the message back to client
+        write(client_sock , client_message , strlen(client_message));
     }
 
-    // Forcefully attaching socket to the port 8080
-    if (setsockopt(server_fd, SOL_SOCKET, SO_REUSEADDR | SO_REUSEPORT,
-                                                  &opt, sizeof(opt)))
+    if(read_size == 0)
     {
-        perror("setsockopt");
-        exit(EXIT_FAILURE);
+        puts("Client disconnected");
+        fflush(stdout);
     }
-    address.sin_family = AF_INET;
-    address.sin_addr.s_addr = INADDR_ANY;
-    address.sin_port = htons( atoi(port) );
-
-
-    // Forcefully attaching socket to the port 8080
-    if (bind(server_fd, (struct sockaddr *)&address,
-                                 sizeof(address))<0)
+    else if(read_size == -1)
     {
-        perror("bind failed");
-        exit(EXIT_FAILURE);
+        perror("recv failed");
     }
-    if (listen(server_fd, 3) < 0)
-    {
-        perror("listen");
-        exit(EXIT_FAILURE);
-    }
-    if ((new_socket = accept(server_fd, (struct sockaddr *)&address,
-                       (socklen_t*)&addrlen))<0)
-    {
-        perror("accept");
-        exit(EXIT_FAILURE);
-    }
-    valread = read( new_socket , buffer, 1024);
-    printf("%s\n",buffer );
-    send(new_socket , hello , strlen(hello) , 0 );
-    printf("Hello message sent\n");
+    return 0;
 }
