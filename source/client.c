@@ -36,72 +36,13 @@ int init_ctr(struct ctr_state *state, const unsigned char iv[8])
     memcpy(state->ivec, iv, 8);
 }
 
-void fdecrypt(unsigned int len, char* cipher, char* text, const unsigned char* enc_key, struct ctr_state* state)
-{
-    AES_KEY key;
-    unsigned char indata[AES_BLOCK_SIZE];
-    unsigned char outdata[AES_BLOCK_SIZE];
-    int offset=0;
-    //Initializing the encryption KEY
-    if (AES_set_encrypt_key(enc_key, 128, &key) < 0)
-    {
-        fprintf(stderr, "Could not set decryption key.");
-        exit(1);
-    }
 
-    //Encrypting Blocks of 16 bytes and writing the output.txt with ciphertext
-    while(1)
-    {
-        memcpy(indata, cipher+offset, AES_BLOCK_SIZE);
-        //printf("%i\n", state.num);
-        AES_ctr128_encrypt(indata, outdata, AES_BLOCK_SIZE, &key, state->ivec, state->ecount, &state->num);
-
-        memcpy(text+offset, outdata, AES_BLOCK_SIZE);
-        offset=offset+AES_BLOCK_SIZE;
-        //if (offset > strlen(cipher))##changed
-        if (offset > len)
-        {
-            break;
-        }
-    }
-}
-
-void fencrypt(char* text, char* cipher, const unsigned char* enc_key, struct ctr_state* state)
-{
-    AES_KEY key;
-    unsigned char indata[AES_BLOCK_SIZE];
-    unsigned char outdata[AES_BLOCK_SIZE];
-    int offset=0;
-    //Initializing the encryption KEY
-    if (AES_set_encrypt_key(enc_key, 128, &key) < 0)
-    {
-        fprintf(stderr, "Could not set encryption key.");
-        exit(1);
-    }
-
-    //Encrypting Blocks of 16 bytes and writing the output.txt with ciphertext
-    while(1)
-    {
-        printf("while going\n");
-        memcpy(indata, text+offset, AES_BLOCK_SIZE);
-        AES_ctr128_encrypt(indata, outdata, AES_BLOCK_SIZE, &key, state->ivec, state->ecount, &state->num);
-
-        memcpy(cipher+offset, outdata, AES_BLOCK_SIZE);
-        offset=offset+AES_BLOCK_SIZE;
-        if (offset > strlen(text))
-        {
-            break;
-        }
-    }
-}
-
-
-int startClient(char *server_address, char *server_port, char *keyfile)
+int startClient(char *server_address, char *server_port, char *key)
 {
     int sock;
     struct sockaddr_in server;
     char message[1000] , server_reply[2000];
-
+    char ciphertext[1000];
     //Create socket
     sock = socket(AF_INET , SOCK_STREAM , 0);
     if (sock == -1)
@@ -123,14 +64,44 @@ int startClient(char *server_address, char *server_port, char *keyfile)
 
     puts("Connected\n");
 
-    //keep communicating with server
+    unsigned char iv[8];
+    struct ctr_state state;
+
+    if (!RAND_bytes(iv, 8))
+     {
+        puts("IV init failed");
+        return 1;
+    }
+    else
+    {
+        puts("Meet IV");
+        puts(iv);
+    }
+    init_ctr(&state, iv);
+    AES_KEY aes_key;
+    if (AES_set_encrypt_key(key, 128, &aes_key)<0)
+    {
+        puts("Could not set encryption key.");
+        exit(1);
+    }
+
     while(1)
     {
+        if( send(sock , iv, strlen(iv) , 0) < 0)
+        {
+            puts("Send IV failed");
+            return 1;
+        }
+
         printf("Enter message : ");
         scanf("%s" , message);
 
+        AES_ctr128_encrypt(message, ciphertext, strlen(message), &aes_key, state.ivec, state.ecount, &state.num);
+        puts("Encrypted:");
+        puts(ciphertext);
         //Send some data
-        if( send(sock , message , strlen(message) , 0) < 0)
+        //if( send(sock , message , strlen(message) , 0) < 0)
+        if( send(sock , ciphertext, strlen(ciphertext) , 0) < 0)
         {
             puts("Send failed");
             return 1;
