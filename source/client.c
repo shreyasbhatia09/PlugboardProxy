@@ -1,3 +1,16 @@
+/**
+    CSE 508: NETWORK SECURITY
+    client.c
+    Purpose: PlugBoard Proxy
+    Description:
+    @author SHREYAS BHATIA
+    shreyas.bhatia@stonybrook.edu
+*/
+
+// REFERENCES
+// https://stackoverflow.com/questions/3141860/aes-ctr-256-encryption-mode-of-operation-on-openssl
+// http://www.binarytides.com/server-client-example-c-sockets-linux/
+
 // Client side C/C++ program to demonstrate Socket programming
 #include <stdio.h>
 #include <sys/socket.h>
@@ -13,9 +26,10 @@
 #include <openssl/hmac.h>
 #include <openssl/buffer.h>
 
-// REFERENCE
-// https://stackoverflow.com/questions/3141860/aes-ctr-256-encryption-mode-of-operation-on-openssl
-// http://www.binarytides.com/server-client-example-c-sockets-linux/
+
+#define bzero(b,len) (memset((b), '\0', (len)), (void) 0)
+
+
 struct ctr_state {
     unsigned char ivec[16];  /* ivec[0..7] is the IV, ivec[8..15] is the big-endian counter */
     unsigned int num;
@@ -84,21 +98,23 @@ int startClient(char *server_address, char *server_port, char *key)
         puts("Could not set encryption key.");
         exit(1);
     }
-
+    if( send(sock , iv, 8 , 0) < 0)
+    {
+        puts("Send IV failed");
+        return 1;
+    }
     while(1)
     {
-        if( send(sock , iv, strlen(iv) , 0) < 0)
-        {
-            puts("Send IV failed");
-            return 1;
-        }
+        memset(&server_reply[0],0,sizeof(char)*2000);
+        memset(&message[0],0,sizeof(char)*1000);
+        memset(&ciphertext[0],0,sizeof(char)*1000);
+        bzero(message, 1000);
+        bzero(server_reply, 2000);
+        bzero(ciphertext, 1000);
 
         printf("Enter message : ");
         scanf("%s" , message);
-
         AES_ctr128_encrypt(message, ciphertext, strlen(message), &aes_key, state.ivec, state.ecount, &state.num);
-        puts("Encrypted:");
-        puts(ciphertext);
         //Send some data
         //if( send(sock , message , strlen(message) , 0) < 0)
         if( send(sock , ciphertext, strlen(ciphertext) , 0) < 0)

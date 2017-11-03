@@ -1,4 +1,15 @@
-//REFERENCE - http://www.binarytides.com/server-client-example-c-sockets-linux/
+/**
+    CSE 508: NETWORK SECURITY
+    server.c
+    Purpose: PlugBoard Proxy
+    Description:
+    @author SHREYAS BHATIA
+    shreyas.bhatia@stonybrook.edu
+*/
+
+// REFERENCES
+// https://stackoverflow.com/questions/3141860/aes-ctr-256-encryption-mode-of-operation-on-openssl
+// http://www.binarytides.com/server-client-example-c-sockets-linux/
 
 #include <stdio.h>
 #include <sys/socket.h>
@@ -47,7 +58,7 @@ int beginServer(char *port, char *dest_address, char *d_port, char *key)
     struct sockaddr_in server , client;
     char client_message[2000];
     unsigned char ivec[16];
-    char deciphertext[1000];
+    char deciphertext[2000];
     //Create socket
     socket_desc = socket(AF_INET , SOCK_STREAM , 0);
     if (socket_desc == -1)
@@ -85,6 +96,7 @@ int beginServer(char *port, char *dest_address, char *d_port, char *key)
     c = sizeof(struct sockaddr_in);
     while(1)
     {
+
         int ivFlag = 0;
         unsigned char iv[8];
         struct ctr_state state;
@@ -99,28 +111,32 @@ int beginServer(char *port, char *dest_address, char *d_port, char *key)
         puts("Connection accepted");
 
         //Receive a message from client
-        while( (read_size = recv(client_sock , client_message , 2000 , 0)) > 0 )
+        while( 1)
         {
+            memset(&client_message[0],0,sizeof(char)*2000);
+            memset(&deciphertext[0],0,sizeof(char)*2000);
+
+            if((read_size = recv(client_sock , client_message , 2000 , 0)) <= 0 )
+                break;
+
             if(ivFlag == 0)
             {
                 puts("Setting encryption attributes");
                 ivFlag = 1;
                 strcpy(iv , client_message);
-                puts("I received the following  IV from client");
-                puts(iv);
                 init_ctr(&state, iv);
                 AES_set_encrypt_key(key, 128, &aes_key);
                 continue;
             }
             else
             {
-                puts("Decrypting this");
-                puts(client_message);
+                //puts("Decrypting this");
+                //puts(client_message);
                 //Send the message back to client
                 // send response
                 AES_ctr128_encrypt(client_message, deciphertext, strlen(client_message),&aes_key, state.ivec, state.ecount, &state.num);
-                puts("Deciphered:");
-                puts(deciphertext);
+                //puts("Deciphered:");
+                //puts(deciphertext);
                 write(client_sock , deciphertext , strlen(deciphertext));
             }
         }
@@ -135,6 +151,8 @@ int beginServer(char *port, char *dest_address, char *d_port, char *key)
         {
             perror("recv failed");
         }
+        close(client_sock);
+        close(socket_desc);
 
     }
     return 0;

@@ -1,3 +1,14 @@
+/**
+    CSE 508: NETWORK SECURITY
+    pbproxy.c
+    Purpose: PlugBoard Proxy
+    Description:
+    @author SHREYAS BHATIA
+    shreyas.bhatia@stonybrook.edu
+*/
+
+
+
 ///Includes
 #include <unistd.h>
 #include <stdlib.h>
