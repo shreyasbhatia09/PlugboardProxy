@@ -179,7 +179,7 @@ int beginServer(char *port, char *dest_address, char *d_port, char *key)
                     //puts(client_message);
                     //Send the message back to client
                     // send response
-                    AES_ctr128_encrypt(client_message, deciphertext, strlen(client_message),&aes_key, state.ivec, state.ecount, &state.num);
+                    AES_ctr128_encrypt(client_message, deciphertext, read_bytes,&aes_key, state.ivec, state.ecount, &state.num);
                     //puts("sending this to destination");
                     //puts(deciphertext);
                     //if( send(destination_socket_desc , deciphertext, strlen(deciphertext) , 0) < 0)

@@ -126,7 +126,7 @@ int startClient(char *server_address, char *server_port, char *key)
             //scanf("%s" , message);
             int read_bytes = read(STDIN_FILENO, message, MAX_SIZE);
 
-            AES_ctr128_encrypt(message, ciphertext, strlen(message), &aes_key, state.ivec, state.ecount, &state.num);
+            AES_ctr128_encrypt(message, ciphertext, read_bytes, &aes_key, state.ivec, state.ecount, &state.num);
             //Send some data
             //if( send(sock , message , strlen(message) , 0) < 0)
             //if( send(sock , ciphertext, strlen(ciphertext) , 0) < 0)
@@ -155,7 +155,7 @@ int startClient(char *server_address, char *server_port, char *key)
             if (read_bytes == 0) {
 					break;
             }
-            fprintf(stderr, server_reply);
+            //fprintf(stderr, server_reply);
             int written_bytes = write(STDOUT_FILENO, server_reply, read_bytes);
             usleep(20000);
             if(written_bytes<0)
