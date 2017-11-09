@@ -68,6 +68,9 @@ int beginServer(char *port, char *dest_address, char *d_port, char *key)
     unsigned char ivec[16];
     char deciphertext[MAX_SIZE*2];
     char destination_server_reply[MAX_SIZE*2];
+    char encrypted_destination_server_reply[MAX_SIZE*2];
+
+
     fd_set serverfds;
 
     //Create socket
@@ -201,17 +204,20 @@ int beginServer(char *port, char *dest_address, char *d_port, char *key)
 //                    puts("Destination recv failed");
 //                    break;
 //                }
-                    int read_bytes = read(destination_socket_desc, destination_server_reply, MAX_SIZE);
-                    if (read_bytes == 0) {
-                            break;
-                    }
+                int read_bytes = read(destination_socket_desc, destination_server_reply, MAX_SIZE);
+                if (read_bytes == 0)
+                {
+                        break;
+                }
+                AES_ctr128_encrypt(destination_server_reply, encrypted_destination_server_reply, read_bytes,&aes_key, state.ivec, state.ecount, &state.num);
+
 //                if( send(client_sock , destination_server_reply, strlen(destination_server_reply) , 0) < 0)
 //                //if( send(sock , message, strlen(ciphertext) , 0) < 0)
 //                {
 //                    puts("Send failed");
 //                    return 1;
 //                }
-                int written_bytes = write(client_sock, destination_server_reply, read_bytes);
+                int written_bytes = write(client_sock, encrypted_destination_server_reply, read_bytes);
                 usleep(20000);
                 if(written_bytes<0)
                 {
@@ -220,6 +226,7 @@ int beginServer(char *port, char *dest_address, char *d_port, char *key)
                     return 1;
                 }
                 memset(&destination_server_reply[0],0,sizeof(char)*MAX_SIZE*2);
+                memset(&encrypted_destination_server_reply[0],0,sizeof(char)*MAX_SIZE*2);
             }
         }
         // open socket

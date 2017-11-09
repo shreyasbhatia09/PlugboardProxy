@@ -58,6 +58,7 @@ int startClient(char *server_address, char *server_port, char *key)
     struct sockaddr_in server;
     char message[MAX_SIZE] , server_reply[MAX_SIZE*2];
     char ciphertext[MAX_SIZE];
+    char server_deciphered[MAX_SIZE];
     fd_set clientfds;
     //Create socket
     sock = socket(AF_INET , SOCK_STREAM , 0);
@@ -151,11 +152,14 @@ int startClient(char *server_address, char *server_port, char *key)
 //                break;
 //            }
             int read_bytes = read(sock, server_reply, MAX_SIZE*2);
-            if (read_bytes == 0) {
+            if (read_bytes == 0)
+            {
 					break;
             }
+
+            AES_ctr128_encrypt(server_reply, server_deciphered, read_bytes, &aes_key, state.ivec, state.ecount, &state.num);
             //fprintf(stderr, server_reply);
-            int written_bytes = write(STDOUT_FILENO, server_reply, read_bytes);
+            int written_bytes = write(STDOUT_FILENO, server_deciphered, read_bytes);
             usleep(20000);
             if(written_bytes<0)
             {
