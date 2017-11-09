@@ -110,7 +110,6 @@ int startClient(char *server_address, char *server_port, char *key)
     {
         perror("Send IV failed");
     }
-    fprintf(stderr,"Sending IV");
 
     while(1)
     {

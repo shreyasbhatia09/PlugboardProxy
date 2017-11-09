@@ -60,7 +60,7 @@ int beginServer(char *port, char *dest_address, char *d_port, char *key)
 {
 
     int socket_desc , client_sock , c , read_size;
-    int destination_socket_desc , dest_sock ;
+
     struct sockaddr_in server, client;
     struct sockaddr_in dest_server, dest;
     char client_message[MAX_SIZE*2];
@@ -72,32 +72,18 @@ int beginServer(char *port, char *dest_address, char *d_port, char *key)
 
     //Create socket
     socket_desc = socket(AF_INET , SOCK_STREAM , 0);
-    destination_socket_desc = socket(AF_INET , SOCK_STREAM , 0);
 
     if (socket_desc == -1 )
     {
         printf("Could not create socket");
         return 1;
     }
-    if (destination_socket_desc == -1 )
-    {
-        printf("Could not create Destination socket");
-        return 1;
-    }
-
-
     puts("Socket created");
 
     //Prepare the sockaddr_in structure
     server.sin_family = AF_INET;
     server.sin_addr.s_addr = INADDR_ANY;
     server.sin_port = htons(atoi(port));
-
-    struct hostent *temp1 = gethostbyname(dest_address);
-    bcopy((char *)temp1->h_addr, (char *)&dest_server.sin_addr.s_addr, temp1->h_length);
-    dest_server.sin_family = AF_INET;
-    dest_server.sin_port = htons(atoi(d_port));
-
 
     //Bind
     if( bind(socket_desc,(struct sockaddr *)&server , sizeof(server)) < 0)
@@ -123,12 +109,23 @@ int beginServer(char *port, char *dest_address, char *d_port, char *key)
     c = sizeof(struct sockaddr_in);
     while(1)
     {
-
+        int destination_socket_desc , dest_sock ;
         int ivFlag = 0;
+        int cntFlag = 0;
         unsigned char iv[8];
         struct ctr_state state;
         puts("Waiting for incoming connections...");
         //accept connection from an incoming client
+        if (destination_socket_desc == -1 )
+        {
+            printf("Could not create Destination socket");
+            return 1;
+        }
+        destination_socket_desc = socket(AF_INET , SOCK_STREAM , 0);
+        struct hostent *temp1 = gethostbyname(dest_address);
+        bcopy((char *)temp1->h_addr, (char *)&dest_server.sin_addr.s_addr, temp1->h_length);
+        dest_server.sin_family = AF_INET;
+        dest_server.sin_port = htons(atoi(d_port));
         client_sock = accept(socket_desc, (struct sockaddr *)&client, (socklen_t*)&c);
         if (client_sock < 0)
         {
@@ -137,7 +134,7 @@ int beginServer(char *port, char *dest_address, char *d_port, char *key)
         }
         puts("Connection accepted");
 
-        if (connect(destination_socket_desc , (struct sockaddr *)&dest_server , sizeof(dest_server)) < 0)
+        if(connect(destination_socket_desc , (struct sockaddr *)&dest_server , sizeof(dest_server)) < 0)
         {
             perror("connect failed. Error");
             return 1;
@@ -174,7 +171,6 @@ int beginServer(char *port, char *dest_address, char *d_port, char *key)
                 }
                 else
                 {
-                    puts("Else part");
                     //puts("Decrypting this");
                     //puts(client_message);
                     //Send the message back to client
@@ -223,8 +219,6 @@ int beginServer(char *port, char *dest_address, char *d_port, char *key)
                     fprintf(stderr,"Error write :");
                     return 1;
                 }
-                fprintf(stderr,"Destination Server reply :");
-                fprintf(stderr, destination_server_reply);
                 memset(&destination_server_reply[0],0,sizeof(char)*MAX_SIZE*2);
             }
         }
