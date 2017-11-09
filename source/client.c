@@ -29,6 +29,7 @@
 
 #define bzero(b,len) (memset((b), '\0', (len)), (void) 0)
 
+#define MAX_SIZE 4096
 
 struct ctr_state {
     unsigned char ivec[16];  /* ivec[0..7] is the IV, ivec[8..15] is the big-endian counter */
@@ -55,8 +56,8 @@ int startClient(char *server_address, char *server_port, char *key)
 {
     int sock;
     struct sockaddr_in server;
-    char message[1000] , server_reply[2000];
-    char ciphertext[1000];
+    char message[MAX_SIZE] , server_reply[MAX_SIZE*2];
+    char ciphertext[MAX_SIZE];
     //Create socket
     sock = socket(AF_INET , SOCK_STREAM , 0);
     if (sock == -1)
@@ -65,9 +66,11 @@ int startClient(char *server_address, char *server_port, char *key)
     }
     puts("Socket created");
 
-    server.sin_addr.s_addr = inet_addr("127.0.0.1");
+    //server.sin_addr.s_addr = inet_addr("127.0.0.1");
+    struct hostent *temp = gethostbyname(server_address);
+    bcopy((char *)temp->h_addr, (char *)&server.sin_addr.s_addr, temp->h_length);
     server.sin_family = AF_INET;
-    server.sin_port = htons(8888) ;
+    server.sin_port = htons(atoi(server_port));
 
     //Connect to remote server
     if (connect(sock , (struct sockaddr *)&server , sizeof(server)) < 0)
@@ -105,12 +108,12 @@ int startClient(char *server_address, char *server_port, char *key)
     }
     while(1)
     {
-        memset(&server_reply[0],0,sizeof(char)*2000);
-        memset(&message[0],0,sizeof(char)*1000);
-        memset(&ciphertext[0],0,sizeof(char)*1000);
-        bzero(message, 1000);
-        bzero(server_reply, 2000);
-        bzero(ciphertext, 1000);
+        memset(&server_reply[0],0,sizeof(char)*MAX_SIZE*2);
+        memset(&message[0],0,sizeof(char)*MAX_SIZE);
+        memset(&ciphertext[0],0,sizeof(char)*MAX_SIZE);
+        bzero(message, MAX_SIZE);
+        bzero(server_reply, MAX_SIZE*2);
+        bzero(ciphertext, MAX_SIZE);
 
         printf("Enter message : ");
         scanf("%s" , message);
@@ -124,7 +127,7 @@ int startClient(char *server_address, char *server_port, char *key)
         }
 
         //Receive a reply from the server
-        if( recv(sock , server_reply , 2000 , 0) < 0)
+        if( recv(sock , server_reply , MAX_SIZE*2 , 0) < 0)
         {
             puts("recv failed");
             break;

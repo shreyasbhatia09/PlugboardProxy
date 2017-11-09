@@ -23,6 +23,8 @@
 #include <openssl/rand.h>
 #include <openssl/hmac.h>
 #include <openssl/buffer.h>
+
+#define MAX_SIZE 4096
 void setFailure(char *msg)
 {
     perror(msg);
@@ -55,12 +57,17 @@ int beginServer(char *port, char *dest_address, char *d_port, char *key)
 {
 
     int socket_desc , client_sock , c , read_size;
-    struct sockaddr_in server , client;
-    char client_message[2000];
+    int destination_socket_desc , dest_sock ;
+    struct sockaddr_in server, client;
+    struct sockaddr_in dest_server, dest;
+    char client_message[MAX_SIZE*2];
+    char destination_message[MAX_SIZE*2];
     unsigned char ivec[16];
-    char deciphertext[2000];
+    char deciphertext[MAX_SIZE*2];
     //Create socket
     socket_desc = socket(AF_INET , SOCK_STREAM , 0);
+    destination_socket_desc = socket(AF_INET , SOCK_STREAM , 0);
+
     if (socket_desc == -1)
     {
         printf("Could not create socket");
@@ -70,7 +77,7 @@ int beginServer(char *port, char *dest_address, char *d_port, char *key)
     //Prepare the sockaddr_in structure
     server.sin_family = AF_INET;
     server.sin_addr.s_addr = INADDR_ANY;
-    server.sin_port = htons(8888);
+    server.sin_port = htons(atoi(port));
 
     //Bind
     if( bind(socket_desc,(struct sockaddr *)&server , sizeof(server)) < 0)
@@ -113,10 +120,10 @@ int beginServer(char *port, char *dest_address, char *d_port, char *key)
         //Receive a message from client
         while( 1)
         {
-            memset(&client_message[0],0,sizeof(char)*2000);
-            memset(&deciphertext[0],0,sizeof(char)*2000);
+            memset(&client_message[0],0,sizeof(char)*MAX_SIZE*2);
+            memset(&deciphertext[0],0,sizeof(char)*MAX_SIZE*2);
 
-            if((read_size = recv(client_sock , client_message , 2000 , 0)) <= 0 )
+            if((read_size = recv(client_sock , client_message , MAX_SIZE*2 , 0)) <= 0 )
                 break;
 
             if(ivFlag == 0)
@@ -152,8 +159,9 @@ int beginServer(char *port, char *dest_address, char *d_port, char *key)
             perror("recv failed");
         }
         close(client_sock);
-        close(socket_desc);
+
 
     }
+    close(socket_desc);
     return 0;
 }
