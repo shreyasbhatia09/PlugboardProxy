@@ -58,6 +58,7 @@ int startClient(char *server_address, char *server_port, char *key)
     struct sockaddr_in server;
     char message[MAX_SIZE] , server_reply[MAX_SIZE*2];
     char ciphertext[MAX_SIZE];
+    fd_set clientfds;
     //Create socket
     sock = socket(AF_INET , SOCK_STREAM , 0);
     if (sock == -1)
@@ -106,8 +107,13 @@ int startClient(char *server_address, char *server_port, char *key)
         puts("Send IV failed");
         return 1;
     }
+    FD_ZERO(&clientfds);
+    FD_SET(STDIN_FILENO, &clientfds);
+    FD_SET(sock, &clientfds);
     while(1)
     {
+        select(sock+1, &clientfds, NULL, NULL, NULL);
+
         memset(&server_reply[0],0,sizeof(char)*MAX_SIZE*2);
         memset(&message[0],0,sizeof(char)*MAX_SIZE);
         memset(&ciphertext[0],0,sizeof(char)*MAX_SIZE);
@@ -115,26 +121,29 @@ int startClient(char *server_address, char *server_port, char *key)
         bzero(server_reply, MAX_SIZE*2);
         bzero(ciphertext, MAX_SIZE);
 
-        printf("Enter message : ");
-        scanf("%s" , message);
-        AES_ctr128_encrypt(message, ciphertext, strlen(message), &aes_key, state.ivec, state.ecount, &state.num);
-        //Send some data
-        //if( send(sock , message , strlen(message) , 0) < 0)
-        if( send(sock , ciphertext, strlen(ciphertext) , 0) < 0)
-        {
-            puts("Send failed");
-            return 1;
-        }
 
+        if (FD_ISSET(STDIN_FILENO, &clientfds)) {
+            printf("Enter message : ");
+            scanf("%s" , message);
+            AES_ctr128_encrypt(message, ciphertext, strlen(message), &aes_key, state.ivec, state.ecount, &state.num);
+            //Send some data
+            //if( send(sock , message , strlen(message) , 0) < 0)
+            if( send(sock , ciphertext, strlen(ciphertext) , 0) < 0)
+            {
+                puts("Send failed");
+                return 1;
+            }
+        }
+        else if (FD_ISSET(sock, &clientfds)) {
         //Receive a reply from the server
-        if( recv(sock , server_reply , MAX_SIZE*2 , 0) < 0)
-        {
-            puts("recv failed");
-            break;
+            if( recv(sock , server_reply , MAX_SIZE*2 , 0) < 0)
+            {
+                puts("recv failed");
+                break;
+            }
+            puts("Server reply :");
+            puts(server_reply);
         }
-
-        puts("Server reply :");
-        puts(server_reply);
     }
 
     close(sock);

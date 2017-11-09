@@ -159,11 +159,14 @@ int beginServer(char *port, char *dest_address, char *d_port, char *key)
                 //puts(deciphertext);
                 //write(client_sock , deciphertext , strlen(deciphertext));
                 //write(client_sock , deciphertext , strlen(deciphertext));
+                puts("sending this to destination");
+                puts(deciphertext);
                 if( send(destination_socket_desc , deciphertext, strlen(deciphertext) , 0) < 0)
                 {
                     puts("Send to destination failed");
                     return 1;
                 }
+
             }
         }
         // open socket
