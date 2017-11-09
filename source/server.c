@@ -163,7 +163,7 @@ int beginServer(char *port, char *dest_address, char *d_port, char *key)
                     puts("Setting encryption attributes");
                     ivFlag = 1;
                     strcpy(iv , client_message);
-                    init_ctr(&state, iv);
+                    init_ctr_s(&state, iv);
                     AES_set_encrypt_key(key, 128, &aes_key);
                         //Connect to remote server
 
