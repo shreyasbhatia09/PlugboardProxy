@@ -20,7 +20,7 @@
 #include <unistd.h>
 #include <fcntl.h>
 #include <arpa/inet.h>
-
+#include <netdb.h>
 #include <openssl/aes.h>
 #include <openssl/rand.h>
 #include <openssl/hmac.h>

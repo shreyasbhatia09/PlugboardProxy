@@ -18,7 +18,7 @@
 #include <string.h>
 #include <fcntl.h>
 #include <unistd.h>
-
+#include <netdb.h>
 #include <openssl/aes.h>
 #include <openssl/rand.h>
 #include <openssl/hmac.h>
@@ -68,10 +68,11 @@ int beginServer(char *port, char *dest_address, char *d_port, char *key)
     socket_desc = socket(AF_INET , SOCK_STREAM , 0);
     destination_socket_desc = socket(AF_INET , SOCK_STREAM , 0);
 
-    if (socket_desc == -1)
+    if (socket_desc == -1 || destination_socket_desc)
     {
         printf("Could not create socket");
     }
+
     puts("Socket created");
 
     //Prepare the sockaddr_in structure
@@ -79,6 +80,18 @@ int beginServer(char *port, char *dest_address, char *d_port, char *key)
     server.sin_addr.s_addr = INADDR_ANY;
     server.sin_port = htons(atoi(port));
 
+    struct hostent *temp1 = gethostbyname(dest_address);
+    bcopy((char *)temp1->h_addr, (char *)&dest_server.sin_addr.s_addr, temp1->h_length);
+    dest_server.sin_family = AF_INET;
+    dest_server.sin_port = htons(atoi(d_port));
+
+        //Connect to remote server
+    if (connect(destination_socket_desc , (struct sockaddr *)&dest_server , sizeof(dest_server)) < 0)
+    {
+        perror("connect failed. Error");
+        return 1;
+    }
+    puts("Connected to destination");
     //Bind
     if( bind(socket_desc,(struct sockaddr *)&server , sizeof(server)) < 0)
     {
@@ -86,7 +99,7 @@ int beginServer(char *port, char *dest_address, char *d_port, char *key)
         perror("bind failed. Error");
         return 1;
     }
-    puts("bind done");
+    puts("binding to port done");
 
     //Listen
     listen(socket_desc , 3);
@@ -144,7 +157,13 @@ int beginServer(char *port, char *dest_address, char *d_port, char *key)
                 AES_ctr128_encrypt(client_message, deciphertext, strlen(client_message),&aes_key, state.ivec, state.ecount, &state.num);
                 //puts("Deciphered:");
                 //puts(deciphertext);
-                write(client_sock , deciphertext , strlen(deciphertext));
+                //write(client_sock , deciphertext , strlen(deciphertext));
+                //write(client_sock , deciphertext , strlen(deciphertext));
+                if( send(destination_socket_desc , deciphertext, strlen(deciphertext) , 0) < 0)
+                {
+                    puts("Send to destination failed");
+                    return 1;
+                }
             }
         }
         // open socket
