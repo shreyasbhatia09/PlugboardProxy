@@ -85,19 +85,16 @@ int startClient(char *server_address, char *server_port, char *key)
     struct ctr_state state;
 
     if (!RAND_bytes(iv, 8))
-     {
-        puts("IV init failed");
+    {
+        fprintf(stderr,"IV init failed");
         return 1;
     }
-    else
-    {
-        puts("IV All Set");
-    }
+
     init_ctr(&state, iv);
     AES_KEY aes_key;
     if (AES_set_encrypt_key(key, 128, &aes_key)<0)
     {
-        puts("Could not set encryption key.");
+        fprintf(stderr,"Could not set encryption key.");
         exit(1);
     }
     if(write(sock, iv, 8)<0)
