@@ -16,22 +16,12 @@
 #include <errno.h>
 #include <string.h>
 #include <fcntl.h>
-
 #include "../includes/server.h"
 #include "../includes/client.h"
-
+#include "../includes/util.h"
 #define setNULL(x) x = NULL
-#define isNULL(x) if (x==NULL)
+#define isNULL(x) (x==NULL)
 
-
-void init(char *key)
-{
-    if(key==NULL)
-    {
-        // TO DO- make random
-        key = "12345678";
-    }
-}
 
 int main(int argc, char **argv)
 {
@@ -40,10 +30,11 @@ int main(int argc, char **argv)
     char *destAddress;
     setNULL(key);
     setNULL(destAddress);
-    char * serverPort;
-    char * destPort;
+    char *serverPort;
+    char *destPort;
     int opt;
-    int reverse_proxy =0;
+    int flag = 1;
+    int reverse_proxy = 0;
     while((opt = getopt(argc, argv, "l:k:")) !=-1)
     {
         switch(opt)
@@ -58,6 +49,8 @@ int main(int argc, char **argv)
             case 'k':
             {
                 key = optarg;
+                if(readKey(key)==0)
+                   flag = 0;
                 break;
             }
             default:
@@ -74,21 +67,17 @@ int main(int argc, char **argv)
     destAddress=argv[optind];
     optind++;
     destPort = (argv[optind]);
-    isNULL(key)
+    if(isNULL(key)|| flag ==0)
     {
-        fprintf(stderr, "No key passed. Exiting.");
+        fprintf(stderr, "No key passed or Key file empty. Exiting.]n");
         exit(0);
     }
-    isNULL(key)
-        init(key);
-
     if(reverse_proxy)
     {
         beginServer(serverPort, destAddress, destPort, key);
     }
     else
     {
-        fprintf(stdout, "Starting in client mode.\n");
         startClient(destAddress, destPort, key);
     }
     return 0;

@@ -25,7 +25,7 @@
 #include <openssl/rand.h>
 #include <openssl/hmac.h>
 #include <openssl/buffer.h>
-
+#include "../includes/util.h"
 
 #define bzero(b,len) (memset((b), '\0', (len)), (void) 0)
 
@@ -51,7 +51,6 @@ int init_ctr(struct ctr_state *state, const unsigned char iv[8])
     memcpy(state->ivec, iv, 8);
 }
 
-
 int startClient(char *server_address, char *server_port, char *key)
 {
     int sock;
@@ -64,11 +63,10 @@ int startClient(char *server_address, char *server_port, char *key)
     sock = socket(AF_INET , SOCK_STREAM , 0);
     if (sock == -1)
     {
-        printf("Could not create socket");
+        fprintf(stderr,"Could not create socket");
+        return 1;
     }
-    puts("Socket created");
-
-    //server.sin_addr.s_addr = inet_addr("127.0.0.1");
+    //puts("Socket created");
     struct hostent *temp = gethostbyname(server_address);
     bcopy((char *)temp->h_addr, (char *)&server.sin_addr.s_addr, temp->h_length);
     server.sin_family = AF_INET;
@@ -81,7 +79,7 @@ int startClient(char *server_address, char *server_port, char *key)
         return 1;
     }
 
-    puts("Connected\n");
+    //puts("Connected\n");
 
     unsigned char iv[8];
     struct ctr_state state;
@@ -102,11 +100,6 @@ int startClient(char *server_address, char *server_port, char *key)
         puts("Could not set encryption key.");
         exit(1);
     }
-//    if( send(sock , iv, 8 , 0) < 0)
-//    {
-//        puts("Send IV failed");
-//        return 1;
-//    }
     if(write(sock, iv, 8)<0)
     {
         perror("Send IV failed");
@@ -122,20 +115,14 @@ int startClient(char *server_address, char *server_port, char *key)
 
         if (FD_ISSET(STDIN_FILENO, &clientfds))
         {
-            //printf("Enter message : ");
-            //scanf("%s" , message);
             int read_bytes = read(STDIN_FILENO, message, MAX_SIZE);
 
             AES_ctr128_encrypt(message, ciphertext, read_bytes, &aes_key, state.ivec, state.ecount, &state.num);
-            //Send some data
-            //if( send(sock , message , strlen(message) , 0) < 0)
-            //if( send(sock , ciphertext, strlen(ciphertext) , 0) < 0)
             int written_bytes = write(sock, ciphertext, read_bytes);
-            //int written_bytes = write(sock, message, read_bytes);
             usleep(20000);
             if(written_bytes<0)
             {
-                puts("Send to destination failed");
+                fprintf(stderr, "Send to destination failed");
                 return 1;
             }
             memset(&ciphertext[0],0,sizeof(char)*MAX_SIZE);
@@ -145,12 +132,6 @@ int startClient(char *server_address, char *server_port, char *key)
         }
         else if (FD_ISSET(sock, &clientfds))
         {
-            //Receive a reply from the server
-//            if( recv(sock , server_reply , MAX_SIZE*2 , 0) < 0)
-//            {
-//                fprintf(stderr,"recv failed");
-//                break;
-//            }
             int read_bytes = read(sock, server_reply, MAX_SIZE*2);
             if (read_bytes == 0)
             {
@@ -158,19 +139,17 @@ int startClient(char *server_address, char *server_port, char *key)
             }
 
             AES_ctr128_encrypt(server_reply, server_deciphered, read_bytes, &aes_key, state.ivec, state.ecount, &state.num);
-            //fprintf(stderr, server_reply);
             int written_bytes = write(STDOUT_FILENO, server_deciphered, read_bytes);
             usleep(20000);
             if(written_bytes<0)
             {
-                puts("Send to destination failed");
+                fprintf(stderr,"Write Error");
                 return 1;
             }
             memset(&server_reply[0],0,sizeof(char)*MAX_SIZE*2);
             bzero(server_reply, MAX_SIZE*2);
         }
     }
-
     close(sock);
 }
 
