@@ -105,7 +105,6 @@ int beginServer(char *port, char *dest_address, char *d_port, char *key)
         int cntFlag = 0;
         unsigned char iv[8];
         struct ctr_state state;
-        puts("Waiting for incoming connections...");
         //accept connection from an incoming client
         if (destination_socket_desc == -1 )
         {
@@ -123,7 +122,6 @@ int beginServer(char *port, char *dest_address, char *d_port, char *key)
             perror("accept failed");
             return 1;
         }
-        puts("Connection accepted");
 
         if(connect(destination_socket_desc , (struct sockaddr *)&dest_server , sizeof(dest_server)) < 0)
         {
@@ -195,7 +193,7 @@ int beginServer(char *port, char *dest_address, char *d_port, char *key)
         // send it to service
         if(read_size == 0)
         {
-            fprintf(stderr,"Client disconnected");
+            //fprintf(stderr,"Client disconnected");
             fflush(stdout);
         }
         else if(read_size == -1)
