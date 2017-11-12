@@ -20,7 +20,10 @@
 #include <unistd.h>
 #include <fcntl.h>
 #include <arpa/inet.h>
+#include <sys/types.h>
+#include <sys/socket.h>
 #include <netdb.h>
+#include <sys/select.h>
 #include <openssl/aes.h>
 #include <openssl/rand.h>
 #include <openssl/hmac.h>
@@ -49,6 +52,7 @@ int init_ctr(struct ctr_state *state, const unsigned char iv[8])
 
     /* Copy IV into 'ivec' */
     memcpy(state->ivec, iv, 8);
+    return 0;
 }
 
 int startClient(char *server_address, char *server_port, char *key)
@@ -57,7 +61,7 @@ int startClient(char *server_address, char *server_port, char *key)
     struct sockaddr_in server;
     char message[MAX_SIZE] , server_reply[MAX_SIZE*2];
     char ciphertext[MAX_SIZE];
-    char server_deciphered[MAX_SIZE];
+    char server_deciphered[MAX_SIZE*2];
     fd_set clientfds;
     //Create socket
     sock = socket(AF_INET , SOCK_STREAM , 0);
@@ -80,28 +84,25 @@ int startClient(char *server_address, char *server_port, char *key)
     }
 
     //puts("Connected\n");
-
-    unsigned char iv[8];
+    char iv[MAX_SIZE];
     struct ctr_state state;
 
-    if (!RAND_bytes(iv, 8))
+    if (!RAND_bytes((unsigned char *)iv, AES_BLOCK_SIZE))
     {
         fprintf(stderr,"IV init failed");
         return 1;
     }
-
-    init_ctr(&state, iv);
+    if(write(sock, iv, strlen(iv))<0)
+    {
+        perror("Send IV failed");
+    }
+    init_ctr(&state, (const unsigned char *)iv);
     AES_KEY aes_key;
-    if (AES_set_encrypt_key(key, 128, &aes_key)<0)
+    if (AES_set_encrypt_key((const unsigned char *)key, 128, &aes_key)<0)
     {
         fprintf(stderr,"Could not set encryption key.");
         exit(1);
     }
-    if(write(sock, iv, 8)<0)
-    {
-        perror("Send IV failed");
-    }
-
     while(1)
     {
         FD_ZERO(&clientfds);
@@ -112,11 +113,17 @@ int startClient(char *server_address, char *server_port, char *key)
 
         if (FD_ISSET(STDIN_FILENO, &clientfds))
         {
+            memset(&ciphertext[0],0,sizeof(char)*MAX_SIZE);
+            bzero(ciphertext, MAX_SIZE);
+            memset(&message[0],0,sizeof(char)*MAX_SIZE);
+            bzero(message, MAX_SIZE);
             int read_bytes = read(STDIN_FILENO, message, MAX_SIZE);
-
-            AES_ctr128_encrypt(message, ciphertext, read_bytes, &aes_key, state.ivec, state.ecount, &state.num);
+			usleep(2000);
+            if(read_bytes<=0)
+                break;
+            AES_ctr128_encrypt((const unsigned char *)message, (unsigned char *)ciphertext, read_bytes, &aes_key, state.ivec, state.ecount, &state.num);
             int written_bytes = write(sock, ciphertext, read_bytes);
-            usleep(20000);
+            
             if(written_bytes<0)
             {
                 fprintf(stderr, "Send to destination failed");
@@ -129,24 +136,39 @@ int startClient(char *server_address, char *server_port, char *key)
         }
         else if (FD_ISSET(sock, &clientfds))
         {
+            memset(&server_reply[0],0,sizeof(char)*MAX_SIZE*2);
+            bzero(server_reply, MAX_SIZE*2);
+            memset(&server_deciphered[0],0,sizeof(char)*MAX_SIZE*2);
+            bzero(server_deciphered, MAX_SIZE*2);
             int read_bytes = read(sock, server_reply, MAX_SIZE*2);
-            if (read_bytes == 0)
+			usleep(2000);
+            if (read_bytes <=0)
             {
 					break;
             }
 
-            AES_ctr128_encrypt(server_reply, server_deciphered, read_bytes, &aes_key, state.ivec, state.ecount, &state.num);
+            AES_ctr128_encrypt((const unsigned char *)server_reply, (unsigned char *)server_deciphered, read_bytes, &aes_key, state.ivec, state.ecount, &state.num);
             int written_bytes = write(STDOUT_FILENO, server_deciphered, read_bytes);
-            usleep(20000);
+            
             if(written_bytes<0)
             {
                 fprintf(stderr,"Write Error");
                 return 1;
             }
+
             memset(&server_reply[0],0,sizeof(char)*MAX_SIZE*2);
-            bzero(server_reply, MAX_SIZE*2);
+            bzero(server_reply, sizeof(char)*MAX_SIZE*2);
+            memset(&server_deciphered[0],0,sizeof(char)*MAX_SIZE*2);
+            bzero(server_deciphered, sizeof(char)*MAX_SIZE*2);
         }
     }
     close(sock);
-}
+    fflush(stdout);
+	if (STDIN_FILENO != -1)
+		close(STDIN_FILENO);
 
+	if (STDOUT_FILENO != -1)
+		close(STDOUT_FILENO);
+
+    return 0;
+}

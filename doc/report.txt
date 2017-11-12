@@ -1,0 +1,96 @@
+CSE508: Network Security, Fall 2017
+
+Homework 3: Plugboard Proxy
+-------------------------------------------------------------------------------
+
+Submission deadline: 11/10/2017 11:59pm EDT
+Submission through https://blackboard.stonybrook.edu
+
+Student Name: Shreyas Bhatia
+Student ID: 111432576
+
+Overview
+----------------------------------------
+In this assignment we have developed a "plugboard" proxy for adding an extra layer of protection to publicly accessible network services. The program is written in C and uses the openSSL libraries.
+
+The folder structure is as follows
+
+PlugBoardProxy
+ |_bin
+ |_build
+ |_doc
+ |_include
+ |_src
+
+To build the project please use the following command on the root level of the folder.
+
+Command: make all
+
+To remove the output binaries, please use the following command on the root level of the folder
+
+Command make clean
+
+The bin folder consits of the binary generated. 
+The build folder contains the the intermediate build outputs. 
+The docs folder contains the documentation of the project.
+includes folder contains the additional headers to be included.
+src contains the source files for this assginment.
+
+After 'make all' command the binary generated goes inside the bin folder. The name of the binary generated is pbproxy.
+
+The program conforms to the following specification:
+
+pbproxy [-l port] -k keyfile destination port
+
+  -l  Reverse-proxy mode: listen for inbound connections on <port> and relay
+      them to <destination>:<port>
+
+  -k  Use the symmetric key contained in <keyfile> (as a hexadecimal string)
+
+
+Example:
+To start a reverse proxy on the same host.
+  pbproxy -k mykey -l 2222 localhost 22
+
+Clients can then connect to the SSH server using the following command:
+  ssh -o "ProxyCommand pbproxy -k mykey vuln.cs.stonybrook.edu 2222" localhost
+
+This will result in a data flow similar to the following:
+
+ssh <--stdin/stdout--> pbproxy-c <--socket 1--> pbproxy-s <--socket 2--> sshd
+\______________________________/                \___________________________/
+             client                                        server           
+
+Environment
+----------------------------
+Distributor ID:	Ubuntu
+Description:	Ubuntu 16.04.3 LTS
+Release:	16.04
+Codename:	xenial
+Kernel:		Linux 4.10.0-38-generic x86_64
+Compiler:	gcc (Ubuntu 5.4.0-6ubuntu1~16.04.5) 5.4.0 20160609
+
+Commands
+----------------------------
+Client:		ssh -o "ProxyCommand ./bin/pbproxy -k source/mykey localhost 2223" localhost
+Server:		./bin/pbproxy -k mykey -l 2222 localhost 22
+
+
+Implementation
+----------------------------
+
+The program is written in C and uses openSSL libraries (OpenSSL 1.0.2l for linux-x86_64). The program has 3 different parts pbproxy, client and server. The pbproxy internally calls client or server depending upon the user attributes. To start a reverse proxy we specify the port in the -l attribute. The key is specified in the -k attribute. If no key is passed the program exits.
+
+In client mode, the prorgam runs as a client and connects to the reverse proxy. The client generates an IV using random bytes and sends it the server as the first message. The client side  writes everything on the standard input, encrypts it and sends it the reverse proxy. If there is a reply from the reverse proxy, it will decrypt the message and write to the standard output. The client uses IO multiplexing to achiece this.
+
+In reverse-proxy mode, the proxy binds to a port and listens for incoming connections. For every connection, it expects the IV as the first message. The server creates two socket, one for client and one for server(ssh, nc ,etc). It listens for events on socket. When the client socket is ready for reading, it decrypts the message and forwards to the server. If there is a reply from server, then it will encrypt the message and send it to the client. The reverse proxy also uses IO-multiplexing for this.
+
+References
+----------------------------
+https://stackoverflow.com/questions/3141860/aes-ctr-256-encryption-mode-of-operation-on-openssl
+http://www.binarytides.com/server-client-example-c-sockets-linux/
+https://stackoverflow.com/questions/29441005/aes-ctr-encryption-and-decryption
+https://www.programminglogic.com/example-of-client-server-program-in-c-using-sockets-and-tcp/
+http://www.thegeekstuff.com/2011/12/c-socket-programming/?utm_source=feedburner
+http://www.gurutechnologies.net/blog/aes-ctr-encryption-in-c/
+

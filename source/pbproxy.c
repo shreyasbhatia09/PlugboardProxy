@@ -67,9 +67,14 @@ int main(int argc, char **argv)
     destAddress=argv[optind];
     optind++;
     destPort = (argv[optind]);
+    if(destAddress==NULL || destPort==NULL)
+    {
+        fprintf(stderr, "No destination address or port");
+        exit(0);
+    }
     if(isNULL(key)|| flag ==0)
     {
-        fprintf(stderr, "No key passed or Key file empty. Exiting.]n");
+        fprintf(stderr, "No key passed or Key file empty. Exiting.\n");
         exit(0);
     }
     if(reverse_proxy)

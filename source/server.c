@@ -17,6 +17,7 @@
 #include <netinet/in.h>
 #include <string.h>
 #include <fcntl.h>
+#include <sys/select.h>
 #include <unistd.h>
 #include <netdb.h>
 #include <openssl/aes.h>
@@ -26,6 +27,9 @@
 #include "../includes/util.h"
 
 #define MAX_SIZE 4096
+
+#define bzero(b,len) (memset((b), '\0', (len)), (void) 0)
+
 void setFailure(char *msg)
 {
     perror(msg);
@@ -50,20 +54,20 @@ int init_ctr_s(struct ctr_state *state, const unsigned char iv[8])
 
     /* Copy IV into 'ivec' */
     memcpy(state->ivec, iv, 8);
+    return 0;
 }
 
 int beginServer(char *port, char *dest_address, char *d_port, char *key)
 {
-    int socket_desc , client_sock , c , read_size;
+    int socket_desc , client_sock , c ;
     struct sockaddr_in server, client;
-    struct sockaddr_in dest_server, dest;
+    struct sockaddr_in dest_server;
     char client_message[MAX_SIZE*2];
-    char destination_message[MAX_SIZE*2];
-    unsigned char ivec[16];
     char deciphertext[MAX_SIZE*2];
     char destination_server_reply[MAX_SIZE*2];
     char encrypted_destination_server_reply[MAX_SIZE*2];
     fd_set serverfds;
+
 
     //Create socket
     socket_desc = socket(AF_INET , SOCK_STREAM , 0);
@@ -89,9 +93,9 @@ int beginServer(char *port, char *dest_address, char *d_port, char *key)
 
     //Listen
     listen(socket_desc , 3);
-
+    puts("Waiting for incoming connections...");
     AES_KEY aes_key;
-    if (AES_set_encrypt_key(key, 128, &aes_key)<0)
+    if (AES_set_encrypt_key((const unsigned char*)key, 128, &aes_key)<0)
     {
         fprintf(stderr,"Could not set encryption key.");
         exit(1);
@@ -100,11 +104,18 @@ int beginServer(char *port, char *dest_address, char *d_port, char *key)
     c = sizeof(struct sockaddr_in);
     while(1)
     {
-        int destination_socket_desc , dest_sock ;
+        memset(&client_message[0],0,sizeof(char)*MAX_SIZE*2);
+        bzero(client_message, sizeof(char)*MAX_SIZE*2);
+        memset(&deciphertext[0],0,sizeof(char)*MAX_SIZE*2);
+        bzero(deciphertext, sizeof(char)*MAX_SIZE*2);
+        memset(&destination_server_reply[0],0,sizeof(char)*MAX_SIZE*2);
+        bzero(destination_server_reply, sizeof(char)*MAX_SIZE*2);
+        memset(&encrypted_destination_server_reply[0],0,sizeof(char)*MAX_SIZE*2);
+        bzero(encrypted_destination_server_reply, sizeof(char)*MAX_SIZE*2);
+        int destination_socket_desc ;
         int ivFlag = 0;
-        int cntFlag = 0;
-        unsigned char iv[8];
-        struct ctr_state state;
+        char iv[MAX_SIZE];
+        struct ctr_state state_server;
         //accept connection from an incoming client
         if (destination_socket_desc == -1 )
         {
@@ -129,6 +140,7 @@ int beginServer(char *port, char *dest_address, char *d_port, char *key)
             return 1;
         }
 
+        puts("Connected\n");
         //Receive a message from client
         while(1)
         {
@@ -142,20 +154,32 @@ int beginServer(char *port, char *dest_address, char *d_port, char *key)
             }
             if (FD_ISSET(client_sock, &serverfds))
             {
+                memset(&client_message[0],0,sizeof(char)*MAX_SIZE*2);
+                bzero(client_message, sizeof(char)*MAX_SIZE*2);
+                memset(&deciphertext[0],0,sizeof(char)*MAX_SIZE*2);
+                bzero(deciphertext, sizeof(char)*MAX_SIZE*2);
+
                 int read_bytes = read(client_sock, client_message, MAX_SIZE);
-                if (read_bytes == 0) {
+				usleep(20000);
+                if (read_bytes <= 0) {
                         break;
                 }
+
                 if(ivFlag == 0)
                 {
+                    memset(&iv[0],0,sizeof(char)*MAX_SIZE);
                     ivFlag = 1;
                     strcpy(iv , client_message);
-                    init_ctr_s(&state, iv);
-                    AES_set_encrypt_key(key, 128, &aes_key);
+                    init_ctr_s(&state_server, (const unsigned char *)iv);
+                    if(AES_set_encrypt_key((const unsigned char *)key, 128, &aes_key)<0)
+                    {
+                            fprintf(stderr, "Unable to set encryption key");
+                            return 1;
+                    }
                 }
                 else
                 {
-                    AES_ctr128_encrypt(client_message, deciphertext, read_bytes,&aes_key, state.ivec, state.ecount, &state.num);
+                    AES_ctr128_encrypt((const unsigned char *)client_message, (unsigned char *)deciphertext, read_bytes,&aes_key, state_server.ivec, state_server.ecount, &state_server.num);
                     int written_bytes = write(destination_socket_desc, deciphertext, read_bytes);
                     usleep(20000);
                     if(written_bytes<0)
@@ -165,18 +189,24 @@ int beginServer(char *port, char *dest_address, char *d_port, char *key)
                     }
                 }
                 memset(&client_message[0],0,sizeof(char)*MAX_SIZE*2);
+                bzero(client_message, sizeof(char)*MAX_SIZE*2);
                 memset(&deciphertext[0],0,sizeof(char)*MAX_SIZE*2);
+                bzero(deciphertext, sizeof(char)*MAX_SIZE*2);
             }
             else if (FD_ISSET(destination_socket_desc, &serverfds))
             {
+                memset(&encrypted_destination_server_reply[0],0,sizeof(char)*MAX_SIZE*2);
+                bzero(encrypted_destination_server_reply, sizeof(char)*MAX_SIZE*2);
+                memset(&destination_server_reply[0],0,sizeof(char)*MAX_SIZE*2);
+                bzero(destination_server_reply, sizeof(char)*MAX_SIZE*2);
                 //Receive a reply from the server
                 int read_bytes = read(destination_socket_desc, destination_server_reply, MAX_SIZE);
-                if (read_bytes == 0)
+				usleep(20000);
+                if (read_bytes <= 0)
                 {
-                    fprintf(stderr,",Read Error");
-                    break;
+                        break;
                 }
-                AES_ctr128_encrypt(destination_server_reply, encrypted_destination_server_reply, read_bytes,&aes_key, state.ivec, state.ecount, &state.num);
+                AES_ctr128_encrypt((const unsigned char *)destination_server_reply, (unsigned char *)encrypted_destination_server_reply, read_bytes,&aes_key, state_server.ivec, state_server.ecount, &state_server.num);
 
                 int written_bytes = write(client_sock, encrypted_destination_server_reply, read_bytes);
                 usleep(20000);
@@ -185,24 +215,14 @@ int beginServer(char *port, char *dest_address, char *d_port, char *key)
                     fprintf(stderr,"Write Error");
                     return 1;
                 }
-                memset(&destination_server_reply[0],0,sizeof(char)*MAX_SIZE*2);
                 memset(&encrypted_destination_server_reply[0],0,sizeof(char)*MAX_SIZE*2);
+                bzero(encrypted_destination_server_reply, sizeof(char)*MAX_SIZE*2);
+                memset(&destination_server_reply[0],0,sizeof(char)*MAX_SIZE*2);
+                bzero(destination_server_reply, sizeof(char)*MAX_SIZE*2);
             }
         }
-        // open socket
-        // send it to service
-        if(read_size == 0)
-        {
-            //fprintf(stderr,"Client disconnected");
-            fflush(stdout);
-        }
-        else if(read_size == -1)
-        {
-            perror("recv failed");
-            break;
-        }
-        close(client_sock);
-    }
+        puts("Client disconnected");
+     }
     close(socket_desc);
     return 0;
 }
