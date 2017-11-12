@@ -72,8 +72,8 @@ Compiler:	gcc (Ubuntu 5.4.0-6ubuntu1~16.04.5) 5.4.0 20160609
 
 Commands
 ----------------------------
-Client:		ssh -o "ProxyCommand ./bin/pbproxy -k source/mykey localhost 2223" localhost
-Server:		./bin/pbproxy -k mykey -l 2222 localhost 22
+Client:		ssh -o "ProxyCommand ./bin/pbproxy -k source/mykey localhost 2222" localhost
+Server:		./bin/pbproxy -k source/mykey -l 2222 localhost 22
 
 
 Implementation
